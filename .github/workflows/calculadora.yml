@@ -11,27 +11,46 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: "3.10"  # Versión corregida
+        python-version: "3.10"
     
-    - name: Install dependencies
+    - name: Verificar archivos
       run: |
-        python -m pip install --upgrade pip
-        # No hay dependencias reales, solo mostramos mensaje
-        echo "No hay dependencias que instalar"
+        echo "Verificando archivos..."
+        ls -la
+        test -f calculator.py && echo "✅ calculator.py existe"
+        test -f app.py && echo "✅ app.py existe"
     
-    - name: Run tests
+    - name: Prueba básica de la calculadora
       run: |
-        python -c "from calculator import Calculator; calc = Calculator(); assert calc.sum(2,3) == 5; assert calc.subtract(10,4) == 6; assert calc.multiply(3,4) == 12; assert calc.divide(10,2) == 5; print('✅ Todas las pruebas pasaron exitosamente')"
+        echo "Ejecutando pruebas básicas..."
+        python -c "
+        from calculator import Calculator
+        calc = Calculator()
+        
+        # Pruebas básicas
+        assert calc.sum(2, 3) == 5
+        assert calc.subtract(10, 4) == 6
+        assert calc.multiply(3, 4) == 12
+        assert calc.divide(10, 2) == 5
+        
+        print('✅ Calculadora funciona correctamente!')
+        "
     
-    - name: Test calculator functionality
+    - name: Prueba de la app en consola
       run: |
-        python app.py << EOF
-        10
-        +
-        5
-        EOF
+        echo "Probando app.py..."
+        echo -e "10\n+\n5" | python app.py | grep -q "15.0"
+        echo -e "10\n/\n2" | python app.py | grep -q "5.0"
+        echo "✅ App funciona correctamente!"
+    
+    - name: Resumen final
+      run: |
+        echo ""
+        echo "🎉 TODAS LAS PRUEBAS PASARON"
+        echo "✅ Calculadora operativa"
+        echo "✅ App funcionando"
