@@ -1,12 +1,16 @@
-from calculator import Calculator
+from calculadora import Calculator  # ✅ Cambiado de calculator a calculadora
+
 def main():
     calc = Calculator()
+    
     print("=== CALCULADORA SIMPLE ===")
     print("Operaciones: +, -, *, /")
+    
     try:
         num1 = float(input("Ingrese el primer número: "))
         operacion = input("Ingrese la operación (+, -, *, /): ")
         num2 = float(input("Ingrese el segundo número: "))
+        
         if operacion == '+':
             resultado = calc.sum(num1, num2)
         elif operacion == '-':
@@ -18,7 +22,9 @@ def main():
         else:
             print("Operación no válida")
             return
+        
         print(f"\nResultado: {num1} {operacion} {num2} = {resultado}")
+        
     except ValueError as e:
         print(f"Error: {e}")
     except Exception as e:
