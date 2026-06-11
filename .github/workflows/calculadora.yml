@@ -1,0 +1,28 @@
+name: Calculadora CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "9.99"  # Versión inexistente - Causará fallo
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run tests
+      run: |
+        python -c "from calculator import Calculator; calc = Calculator(); assert calc.sum(2,3) == 5; assert calc.divide(10,2) == 5; print('Pruebas exitosas')"
