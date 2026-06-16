@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CalculadoraPy - CD Tests</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧮 CalculadoraPy</h1>
+            <p class="subtitle">Continuous Deployment Tests</p>
+        </header>
+        
+        <div class="build-status failing" id="buildStatus">
+            ❌ BUILD FAILED - Tests fallaron
+        </div>
+        
+        <div class="alert">
+            ⚠️ Un test ha fallado intencionalmente para demostrar el sistema de CD
+        </div>
+        
+        <div class="build-info">
+            <div class="build-info-item">
+                <strong>📦 Build #:</strong> 
+                <span id="buildNumber">CD-2026-06-16-002</span>
+            </div>
+            <div class="build-info-item">
+                <strong>🕐 Última actualización:</strong> 
+                <span id="timestamp">Cargando...</span>
+            </div>
+            <div class="build-info-item">
+                <strong>📊 Estado:</strong> 
+                <span style="color: #dc3545;">❌ FALLIDO</span>
+            </div>
+        </div>
+        
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <span class="progress-label" id="progressLabel">83%</span>
+        </div>
+        
+        <div class="test-status">
+            <h2>🧪 Resultados de Tests</h2>
+            
+            <div class="test-item pass">
+                <div class="test-info">
+                    <span class="status-icon">✅</span>
+                    <span class="test-name">Test de suma (2 + 3 = 5)</span>
+                </div>
+                <span class="badge pass">PASS</span>
+            </div>
+            
+            <div class="test-item pass">
+                <div class="test-info">
+                    <span class="status-icon">✅</span>
+                    <span class="test-name">Test de resta (10 - 5 = 5)</span>
+                </div>
+                <span class="badge pass">PASS</span>
+            </div>
+            
+            <div class="test-item pass">
+                <div class="test-info">
+                    <span class="status-icon">✅</span>
+                    <span class="test-name">Test de multiplicación (3 × 4 = 12)</span>
+                </div>
+                <span class="badge pass">PASS</span>
+            </div>
+            
+            <div class="test-item fail-highlight" id="failedTest">
+                <div class="test-info">
+                    <span class="status-icon">❌</span>
+                    <span class="test-name">
+                        Test de división (10 ÷ 2 = 5) - ESPERADO: 3 ❌
+                    </span>
+                </div>
+                <span class="badge fail">FAIL</span>
+            </div>
+            
+            <div class="test-item pass">
+                <div class="test-info">
+                    <span class="status-icon">✅</span>
+                    <span class="test-name">Test división por cero (debe lanzar error)</span>
+                </div>
+                <span class="badge pass">PASS</span>
+            </div>
+            
+            <div class="test-item pass">
+                <div class="test-info">
+                    <span class="status-icon">✅</span>
+                    <span class="test-name">Test de integración app.py</span>
+                </div>
+                <span class="badge pass">PASS</span>
+            </div>
+        </div>
+        
+        <div class="actions">
+            <button class="button" onclick="window.location.reload()">🔄 Actualizar</button>
+            <a href="https://github.com/Jose24Piza/CalculadoraPy/actions" target="_blank" class="button danger">📊 Ver Actions (FALLIDO)</a>
+        </div>
+        
+        <footer class="timestamp">
+            <span>Última actualización: <span id="loadTime"></span></span>
+        </footer>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
