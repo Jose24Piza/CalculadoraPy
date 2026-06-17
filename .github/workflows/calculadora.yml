@@ -1,4 +1,3 @@
-# .github/workflows/calculadora.yml (CORREGIDO)
 name: Calculadora CI
 
 on: [push, pull_request]
@@ -22,19 +21,21 @@ jobs:
         test -f calculadora.py && echo "✅ calculadora.py existe"
         test -f app.py && echo "✅ app.py existe"
     
-    - name: Pruebas unitarias (CORREGIDAS)
+    - name: Pruebas unitarias (CON FALLO INTENCIONAL)
       run: |
         python -c "
         from calculadora import Calculator
         calc = Calculator()
         
-        # Todas las pruebas pasan correctamente
+        # Pruebas que pasan
         assert calc.sum(2, 3) == 5
         assert calc.subtract(10, 5) == 5
         assert calc.multiply(3, 4) == 12
-        assert calc.divide(10, 2) == 5  # ✅ Test corregido
         
-        print('✅ Todas las pruebas pasaron correctamente 🎉')
+        # ❌ TEST QUE FALLA INTENCIONALMENTE
+        assert calc.divide(10, 2) == 3, '❌ Test fallido intencionalmente'
+        
+        print('✅ Todas las pruebas pasaron correctamente')
         "
     
     - name: Prueba de app.py

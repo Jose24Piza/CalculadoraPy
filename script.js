@@ -1,72 +1,115 @@
-// script.js
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('📊 CalculadoraPy CD Dashboard cargado');
+    
+    const elements = {
+        buildStatus: document.getElementById('buildStatus'),
+        alertMessage: document.getElementById('alertMessage'),
+        buildNumber: document.getElementById('buildNumber'),
+        timestamp: document.getElementById('timestamp'),
+        buildStatusText: document.getElementById('buildStatusText'),
+        progressFill: document.getElementById('progressFill'),
+        progressLabel: document.getElementById('progressLabel'),
+        loadTime: document.getElementById('loadTime'),
+        testSuma: document.getElementById('testSuma'),
+        testResta: document.getElementById('testResta'),
+        testMultiplicacion: document.getElementById('testMultiplicacion'),
+        testDivision: document.getElementById('testDivision'),
+        testDivisionCero: document.getElementById('testDivisionCero'),
+        testIntegracion: document.getElementById('testIntegracion')
+    };
+    
     // Actualizar timestamp
     const now = new Date();
-    const timestampElement = document.getElementById('timestamp');
-    const loadTimeElement = document.getElementById('loadTime');
-    const buildNumberElement = document.getElementById('buildNumber');
-    const progressFill = document.getElementById('progressFill');
-    const progressLabel = document.getElementById('progressLabel');
-    
-    if (timestampElement) {
-        timestampElement.textContent = now.toLocaleString('es-ES');
+    if (elements.timestamp) {
+        elements.timestamp.textContent = now.toLocaleString('es-ES');
+    }
+    if (elements.loadTime) {
+        elements.loadTime.textContent = now.toLocaleString('es-ES');
     }
     
-    if (loadTimeElement) {
-        loadTimeElement.textContent = now.toLocaleString('es-ES');
+    // SIMULACIÓN DE TESTS - Todos pasan
+    function simulateTests() {
+        const testResults = {
+            suma: true,
+            resta: true,
+            multiplicacion: true,
+            division: true,
+            divisionCero: true,
+            integracion: true
+        };
+        
+        // Para probar fallo, descomentar:
+        // testResults.division = false;
+        
+        updateTestResults(testResults);
     }
     
-    // Generar número de build aleatorio
-    if (buildNumberElement) {
-        const randomNum = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
-        buildNumberElement.textContent = `CD-2026-06-16-${randomNum}`;
+    function updateTestResults(results) {
+        const allPassed = Object.values(results).every(v => v === true);
+        const progress = (Object.values(results).filter(v => v === true).length / Object.values(results).length) * 100;
+        
+        if (elements.progressFill) {
+            elements.progressFill.style.width = progress + '%';
+        }
+        if (elements.progressLabel) {
+            elements.progressLabel.textContent = Math.round(progress) + '%';
+        }
+        
+        const testMap = {
+            suma: elements.testSuma,
+            resta: elements.testResta,
+            multiplicacion: elements.testMultiplicacion,
+            division: elements.testDivision,
+            divisionCero: elements.testDivisionCero,
+            integracion: elements.testIntegracion
+        };
+        
+        Object.keys(testMap).forEach(key => {
+            const element = testMap[key];
+            if (element) {
+                const passed = results[key];
+                element.className = `test-item ${passed ? 'pass' : 'fail'}`;
+                element.querySelector('.status-icon').textContent = passed ? '✅' : '❌';
+                element.querySelector('.badge').textContent = passed ? 'PASS' : 'FAIL';
+                element.querySelector('.badge').className = `badge ${passed ? 'pass' : 'fail'}`;
+            }
+        });
+        
+        if (elements.buildStatus) {
+            if (allPassed) {
+                elements.buildStatus.className = 'build-status passing';
+                elements.buildStatus.textContent = '✅ BUILD PASSED - Todos los tests pasaron';
+            } else {
+                elements.buildStatus.className = 'build-status failing';
+                elements.buildStatus.textContent = `❌ BUILD FAILED - ${Object.values(results).filter(v => v === false).length} tests fallaron`;
+            }
+        }
+        
+        if (elements.alertMessage) {
+            if (allPassed) {
+                elements.alertMessage.className = 'alert success';
+                elements.alertMessage.innerHTML = '✅ Todos los tests han pasado correctamente 🎉';
+            } else {
+                elements.alertMessage.className = 'alert error';
+                elements.alertMessage.innerHTML = '❌ Algunos tests han fallado. Revisa GitHub Actions.';
+            }
+        }
+        
+        if (elements.buildStatusText) {
+            if (allPassed) {
+                elements.buildStatusText.innerHTML = '✅ EXITOSO';
+                elements.buildStatusText.style.color = '#28a745';
+            } else {
+                elements.buildStatusText.innerHTML = '❌ FALLIDO';
+                elements.buildStatusText.style.color = '#dc3545';
+            }
+        }
+        
+        if (elements.buildNumber) {
+            const randomNum = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+            elements.buildNumber.textContent = `CD-${now.toISOString().split('T')[0]}-${randomNum}`;
+        }
     }
     
-    // Verificar estado del build desde URL params
-    const urlParams = new URLSearchParams(window.location.search);
-    const status = urlParams.get('status');
-    
-    if (status === 'success') {
-        // Actualizar a estado exitoso
-        const buildStatus = document.getElementById('buildStatus');
-        if (buildStatus) {
-            buildStatus.className = 'build-status passing';
-            buildStatus.innerHTML = '✅ BUILD PASSED - Todos los tests pasaron';
-        }
-        
-        // Cambiar color de la barra de progreso
-        if (progressFill) {
-            progressFill.className = 'progress-fill success';
-            progressFill.style.width = '100%';
-        }
-        
-        if (progressLabel) {
-            progressLabel.textContent = '100%';
-        }
-        
-        // Cambiar el test fallido a exitoso
-        const failedTest = document.getElementById('failedTest');
-        if (failedTest) {
-            failedTest.className = 'test-item pass';
-            failedTest.innerHTML = `
-                <div class="test-info">
-                    <span class="status-icon">✅</span>
-                    <span class="test-name">Test de división (10 ÷ 2 = 5)</span>
-                </div>
-                <span class="badge pass">PASS</span>
-            `;
-        }
-        
-        // Cambiar el botón
-        const actionButton = document.querySelector('.button.danger');
-        if (actionButton) {
-            actionButton.className = 'button success';
-            actionButton.textContent = '📊 Ver Actions (EXITOSO)';
-            actionButton.href = 'https://github.com/Jose24Piza/CalculadoraPy/actions';
-        }
-    }
-    
-    // Simular carga inicial
-    console.log('📊 CalculadoraPy CD Dashboard cargado');
-    console.log(`🕐 ${now.toLocaleString('es-ES')}`);
+    simulateTests();
 });
