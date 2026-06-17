@@ -42,3 +42,54 @@ jobs:
       run: |
         echo -e "10\n+\n5" | python app.py | grep -q "15.0"
         echo "✅ app.py funciona correctamente"
+
+# JOB 2: Despliegue a GitHub Pages (solo si tests pasan)
+  deploy:
+    runs-on: ubuntu-latest
+    needs: test
+    if: success()  # Solo se ejecuta si los tests pasaron
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+    
+    - name: Preparar archivos para Pages
+      run: |
+        # Crear carpeta para Pages
+        mkdir -p _site
+        
+        # Copiar archivos HTML, CSS, JS
+        cp index.html _site/
+        cp style.css _site/
+        cp script.js _site/
+        cp .nojekyll _site/ 2>/dev/null || echo "" > _site/.nojekyll
+        
+        # Crear archivo de estado del build
+        cat > _site/build-status.json << EOF
+        {
+          "status": "success",
+          "timestamp": "$(date -Iseconds)",
+          "commit": "${GITHUB_SHA:0:7}",
+          "tests": "passed"
+        }
+        EOF
+        
+        # Mostrar contenido
+        echo "📁 Contenido de _site:"
+        ls -la _site/
+    
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: _site
+    
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4

@@ -10,7 +10,10 @@
     <div class="container">
         <header>
             <h1>🧮 CalculadoraPy</h1>
-            <p class="subtitle">Continuous Deployment Tests</p>
+            <p class="subtitle">Continuous Integration & Deployment</p>
+            <p style="font-size: 0.9em; color: #666;">
+                🚀 Desplegado automáticamente desde GitHub Actions
+            </p>
         </header>
         
         <div class="build-status" id="buildStatus">
@@ -37,6 +40,10 @@
             <div class="build-info-item">
                 <strong>🌐 GitHub Pages:</strong> 
                 <span style="color: #28a745;">✅ Activo</span>
+            </div>
+            <div class="build-info-item">
+                <strong>🔗 Commit:</strong> 
+                <span id="commitHash" style="font-family: monospace;">Cargando...</span>
             </div>
         </div>
         
@@ -99,6 +106,16 @@
             </div>
         </div>
         
+        <div style="background: #e9ecef; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <h3 style="color: #333; margin-bottom: 10px;">⚙️ Información del CI/CD</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9em;">
+                <div><strong>Pipeline:</strong> GitHub Actions</div>
+                <div><strong>Deploy:</strong> Automático</div>
+                <div><strong>Tests:</strong> Unitarios + Integración</div>
+                <div><strong>CD:</strong> GitHub Pages</div>
+            </div>
+        </div>
+        
         <div class="actions">
             <button class="button" onclick="window.location.reload()">🔄 Actualizar</button>
             <a href="https://github.com/Jose24Piza/CalculadoraPy/actions" target="_blank" class="button">📊 Ver GitHub Actions</a>
@@ -108,7 +125,9 @@
         <footer class="timestamp">
             <span>📌 Página generada: <span id="loadTime"></span></span>
             <br>
-            <span style="font-size: 0.8em; color: #bbb;">GitHub Pages | CalculadoraPy CD Dashboard</span>
+            <span style="font-size: 0.8em; color: #bbb;">
+                CI/CD Pipeline | GitHub Actions → GitHub Pages
+            </span>
         </footer>
     </div>
     

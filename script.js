@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📊 CalculadoraPy CD Dashboard cargado');
+    console.log('🚀 Deploy automático desde GitHub Actions');
     
     const elements = {
         buildStatus: document.getElementById('buildStatus'),
@@ -10,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
         progressFill: document.getElementById('progressFill'),
         progressLabel: document.getElementById('progressLabel'),
         loadTime: document.getElementById('loadTime'),
+        commitHash: document.getElementById('commitHash'),
         testSuma: document.getElementById('testSuma'),
         testResta: document.getElementById('testResta'),
         testMultiplicacion: document.getElementById('testMultiplicacion'),
@@ -27,6 +29,28 @@ document.addEventListener('DOMContentLoaded', function() {
         elements.loadTime.textContent = now.toLocaleString('es-ES');
     }
     
+    // Intentar leer estado del build desde archivo JSON
+    fetch('build-status.json')
+        .then(response => response.json())
+        .then(data => {
+            console.log('📊 Estado del build:', data);
+            if (data.commit && elements.commitHash) {
+                elements.commitHash.textContent = data.commit;
+            }
+            if (data.timestamp && elements.buildNumber) {
+                elements.buildNumber.textContent = `Build-${data.timestamp.split('T')[0]}`;
+            }
+        })
+        .catch(error => {
+            console.log('ℹ️ No se pudo cargar build-status.json, usando valores por defecto');
+            if (elements.commitHash) {
+                elements.commitHash.textContent = 'main';
+            }
+            if (elements.buildNumber) {
+                elements.buildNumber.textContent = `Build-${now.toISOString().split('T')[0]}`;
+            }
+        });
+    
     // SIMULACIÓN DE TESTS - Todos pasan
     function simulateTests() {
         const testResults = {
@@ -38,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
             integracion: true
         };
         
-        // Para probar fallo, descomentar:
+        // Para probar fallo en dashboard, descomentar:
         // testResults.division = false;
         
         updateTestResults(testResults);
@@ -103,11 +127,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 elements.buildStatusText.innerHTML = '❌ FALLIDO';
                 elements.buildStatusText.style.color = '#dc3545';
             }
-        }
-        
-        if (elements.buildNumber) {
-            const randomNum = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
-            elements.buildNumber.textContent = `CD-${now.toISOString().split('T')[0]}-${randomNum}`;
         }
     }
     
