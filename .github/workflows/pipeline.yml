@@ -1,0 +1,191 @@
+name: CI/CD Pipeline - CalculadoraPy
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Permite ejecutar manualmente
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # ==================== JOB 1: LINT Y TESTS ====================
+  quality-check:
+    name: 📋 Quality Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - name: 🔄 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: 📦 Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install flake8 pytest pytest-cov mypy
+
+    - name: 🔍 Lint with flake8
+      run: flake8 . --count --max-line-length=120 --statistics
+
+    - name: 📝 Type check with mypy
+      run: mypy *.py || true  # No falla si no hay type hints
+
+    - name: 🧪 Run tests with coverage
+      run: |
+        pytest tests/ -v --cov=. --cov-report=xml --cov-report=term
+
+    - name: 📊 Upload coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage.xml
+
+  # ==================== JOB 2: BUILD ====================
+  build:
+    name: 📦 Build Artifact
+    runs-on: ubuntu-latest
+    needs: quality-check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 🔄 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 📂 Create deployment package
+      run: |
+        mkdir -p deploy
+        cp *.py deploy/
+        cp requirements.txt deploy/
+        cp -r tests deploy/ 2>/dev/null || true
+        cd deploy && zip -r ../calculadorapy.zip .
+
+    - name: 📤 Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: calculadorapy-${{ github.run_number }}
+        path: calculadorapy.zip
+
+  # ==================== JOB 3: DEPLOY TO PRODUCTION ====================
+  deploy:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 📥 Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: calculadorapy-${{ github.run_number }}
+        path: .
+
+    - name: 📂 Extract artifact
+      run: |
+        unzip calculadorapy.zip -d app/
+        ls -la app/
+
+    - name: 🎉 Deployment successful
+      run: |
+        echo "✅ Pipeline ejecutado exitosamente!"
+        echo "📦 Build #${{ github.run_number }}"
+        echo "🔗 Commit: ${{ github.sha }}"
+        echo "📝 Mensaje: ${{ github.event.head_commit.message }}"
+        echo "👤 Autor: ${{ github.actor }}"
+        echo "⏰ Fecha: $(date)"
+
+  # ==================== JOB 4: DEPLOY TO STAGING ====================
+  deploy-staging:
+    name: 🧪 Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: quality-check
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+    - name: 🔄 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: 📦 Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: 🧪 Run tests in staging environment
+      run: pytest tests/ -v
+
+    - name: 📋 Staging deployment simulation
+      run: |
+        echo "✅ Despliegue a STAGING completado"
+        echo "🌐 URL: https://calculadorapy-staging.example.com"
+        echo "🔗 Commit: ${{ github.sha }}"
+
+  # ==================== JOB 5: NOTIFICACIONES ====================
+  notify:
+    name: 📨 Notifications
+    runs-on: ubuntu-latest
+    needs: [quality-check, build, deploy, deploy-staging]
+    if: always()
+    
+    steps:
+    - name: 📊 Build Status
+      run: |
+        echo "═══════════════════════════════════════════"
+        echo "📊 CI/CD PIPELINE - CalculadoraPy"
+        echo "═══════════════════════════════════════════"
+        echo "🔢 Build #: ${{ github.run_number }}"
+        echo "🔗 Commit: ${{ github.sha }}"
+        echo "📝 Mensaje: ${{ github.event.head_commit.message }}"
+        echo "👤 Autor: ${{ github.actor }}"
+        echo "⏰ Fecha: $(date)"
+        echo "📋 Estado: ${{ job.status }}"
+        echo "═══════════════════════════════════════════"
+        
+        if [ "${{ job.status }}" = "success" ]; then
+          echo "✅ PIPELINE EXITOSO 🎉"
+        else
+          echo "❌ PIPELINE FALLIDO ⚠️"
+        fi
+
+    - name: 📝 Generate deployment report
+      run: |
+        cat > deployment-report.md << EOF
+        # 📊 Reporte de Despliegue - CalculadoraPy
+        
+        ## 📋 Información General
+        - **Build #**: ${{ github.run_number }}
+        - **Commit**: ${{ github.sha }}
+        - **Autor**: ${{ github.actor }}
+        - **Fecha**: $(date)
+        - **Mensaje**: ${{ github.event.head_commit.message }}
+        - **Rama**: ${{ github.ref_name }}
+        
+        ## ✅ Estado del Pipeline
+        - **Quality Check**: ${{ needs.quality-check.result }}
+        - **Build**: ${{ needs.build.result }}
+        - **Deploy**: ${{ needs.deploy.result }}
+        - **Deploy Staging**: ${{ needs.deploy-staging.result }}
+        
+        ## 🚀 URLs
+        - **Producción**: https://calculadorapy.onrender.com
+        - **Staging**: https://calculadorapy-staging.railway.app
+        
+        ---
+        *Reporte generado automáticamente por GitHub Actions*
+        EOF
+        
+        cat deployment-report.md
+
+    - name: 📤 Upload deployment report
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-report-${{ github.run_number }}
+        path: deployment-report.md

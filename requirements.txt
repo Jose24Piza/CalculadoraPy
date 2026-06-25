@@ -1,1 +1,7 @@
-libreria_inventada_12345
+flask==2.3.3
+gunicorn==21.2.0
+psutil==5.9.6
+pytest==7.4.3
+pytest-cov==4.1.0
+flake8==6.1.0
+mypy==1.7.0

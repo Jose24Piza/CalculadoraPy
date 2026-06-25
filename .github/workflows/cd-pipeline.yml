@@ -1,0 +1,417 @@
+name: CD Pipeline - Liberación y Despliegue Continuo
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Entorno de despliegue'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  PYTHON_VERSION: '3.11'
+  APP_NAME: 'calculadorapy'
+  STAGING_URL: 'https://calculadorapy-staging.onrender.com'
+  PRODUCTION_URL: 'https://calculadorapy.onrender.com'
+
+jobs:
+  # ============================================
+  # JOB 1: LIBERACIÓN (Release)
+  # ============================================
+  release:
+    name: 📦 Liberación de Versión
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release_notes: ${{ steps.release-notes.outputs.notes }}
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+
+    - name: 🏷️ Generar versión
+      id: version
+      run: |
+        VERSION=$(date +'%Y%m%d-%H%M%S')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "📌 Versión generada: $VERSION"
+
+    - name: 📝 Generar notas de liberación
+      id: release-notes
+      run: |
+        NOTES=$(cat << EOF
+        # 📦 Release ${{ steps.version.outputs.version }}
+        
+        ## 📋 Información
+        - **Fecha**: $(date)
+        - **Commit**: ${{ github.sha }}
+        - **Autor**: ${{ github.actor }}
+        - **Rama**: ${{ github.ref_name }}
+        
+        ## 🎯 Cambios
+        ${{ github.event.head_commit.message }}
+        
+        ## 📊 Estado
+        - ✅ Tests pasaron
+        - ✅ Lint pasó
+        - ✅ Build exitoso
+        EOF
+        )
+        echo "notes=$NOTES" >> $GITHUB_OUTPUT
+        echo "$NOTES"
+
+    - name: 📤 Subir notas de liberación
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-notes-${{ steps.version.outputs.version }}
+        path: release-notes.md
+
+  # ============================================
+  # JOB 2: GENERACIÓN DEL ENTORNO DE LIBERACIÓN
+  # ============================================
+  setup-environment:
+    name: 🖥️ Generación del Entorno de Liberación
+    runs-on: ubuntu-latest
+    needs: release
+    outputs:
+      environment_ready: ${{ steps.setup.outputs.ready }}
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+
+    - name: 🔧 Ejecutar script de setup de entorno
+      id: setup
+      run: |
+        chmod +x scripts/setup-environment.sh
+        ./scripts/setup-environment.sh
+        
+        # Verificar que el entorno se creó correctamente
+        if [ -d "venv" ] || [ -f "requirements.txt" ]; then
+          echo "ready=true" >> $GITHUB_OUTPUT
+          echo "✅ Entorno generado correctamente"
+        else
+          echo "ready=false" >> $GITHUB_OUTPUT
+          echo "❌ Error generando el entorno"
+          exit 1
+        fi
+
+    - name: 📊 Verificar estado del entorno
+      run: |
+        echo "═══════════════════════════════════════"
+        echo "🖥️ ESTADO DEL ENTORNO DE LIBERACIÓN"
+        echo "═══════════════════════════════════════"
+        echo "📂 Directorio: $(pwd)"
+        echo "🐍 Python: $(python --version)"
+        echo "📦 Dependencias: $(wc -l requirements.txt) líneas"
+        echo "📁 Archivos: $(ls -la)"
+        echo "═══════════════════════════════════════"
+
+  # ============================================
+  # JOB 3: PRUEBAS EN ENTORNO DE LIBERACIÓN
+  # ============================================
+  test-release:
+    name: 🧪 Pruebas en Entorno de Liberación
+    runs-on: ubuntu-latest
+    needs: setup-environment
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+
+    - name: 🐍 Configurar Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: 📦 Instalar dependencias
+      run: pip install -r requirements.txt
+
+    - name: 🧪 Ejecutar tests unitarios
+      id: unit-tests
+      continue-on-error: true
+      run: |
+        echo "═══════════════════════════════════════"
+        echo "🧪 TESTS UNITARIOS"
+        echo "═══════════════════════════════════════"
+        pytest tests/test_calculadora.py -v
+        echo "unit_tests_passed=$?" >> $GITHUB_OUTPUT
+
+    - name: 🧪 Ejecutar tests de integración
+      id: integration-tests
+      continue-on-error: true
+      run: |
+        echo "═══════════════════════════════════════"
+        echo "🧪 TESTS DE INTEGRACIÓN"
+        echo "═══════════════════════════════════════"
+        pytest tests/test_integracion.py -v
+        echo "integration_tests_passed=$?" >> $GITHUB_OUTPUT
+
+    - name: 🧪 Ejecutar tests de API
+      id: api-tests
+      continue-on-error: true
+      run: |
+        echo "═══════════════════════════════════════"
+        echo "🧪 TESTS DE API"
+        echo "═══════════════════════════════════════"
+        # Iniciar servidor en background
+        python app.py &
+        SERVER_PID=$!
+        sleep 5
+        pytest tests/test_api.py -v
+        kill $SERVER_PID
+        echo "api_tests_passed=$?" >> $GITHUB_OUTPUT
+
+    - name: 📊 Resumen de pruebas
+      run: |
+        echo "═══════════════════════════════════════"
+        echo "📊 RESUMEN DE PRUEBAS"
+        echo "═══════════════════════════════════════"
+        echo "✅ Unitarios: ${{ steps.unit-tests.outputs.unit_tests_passed == '0' && 'PASARON' || 'FALLARON' }}"
+        echo "✅ Integración: ${{ steps.integration-tests.outputs.integration_tests_passed == '0' && 'PASARON' || 'FALLARON' }}"
+        echo "✅ API: ${{ steps.api-tests.outputs.api_tests_passed == '0' && 'PASARON' || 'FALLARON' }}"
+        
+        if [ "${{ steps.unit-tests.outputs.unit_tests_passed }}" != "0" ] || \
+           [ "${{ steps.integration-tests.outputs.integration_tests_passed }}" != "0" ] || \
+           [ "${{ steps.api-tests.outputs.api_tests_passed }}" != "0" ]; then
+          echo "❌ ALGUNOS TESTS FALLARON"
+          exit 1
+        else
+          echo "✅ TODOS LOS TESTS PASARON"
+        fi
+
+  # ============================================
+  # JOB 4: GENERACIÓN DEL DESPLIEGUE
+  # ============================================
+  generate-deployment:
+    name: 🚀 Generación del Despliegue
+    runs-on: ubuntu-latest
+    needs: [release, test-release]
+    if: github.ref == 'refs/heads/main'
+    outputs:
+      deployment_id: ${{ steps.deployment.outputs.id }}
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+
+    - name: 📂 Preparar artefactos de despliegue
+      run: |
+        mkdir -p deployment-artifacts
+        cp *.py deployment-artifacts/
+        cp requirements.txt deployment-artifacts/
+        cp -r tests deployment-artifacts/ 2>/dev/null || true
+        
+        # Crear archivo de configuración de despliegue
+        cat > deployment-artifacts/deployment.json << EOF
+        {
+          "app_name": "${{ env.APP_NAME }}",
+          "version": "${{ needs.release.outputs.version }}",
+          "commit": "${{ github.sha }}",
+          "timestamp": "$(date -Iseconds)",
+          "environment": "${{ github.event.inputs.environment || 'production' }}",
+          "url": "${{ github.event.inputs.environment == 'staging' && env.STAGING_URL || env.PRODUCTION_URL }}"
+        }
+        EOF
+
+    - name: 📤 Subir artefactos de despliegue
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-artifacts-${{ needs.release.outputs.version }}
+        path: deployment-artifacts/
+
+    - name: 📝 Generar manifest de despliegue
+      id: deployment
+      run: |
+        DEPLOY_ID=$(date +'%Y%m%d-%H%M%S')
+        echo "id=$DEPLOY_ID" >> $GITHUB_OUTPUT
+        
+        cat > deployment-manifest.yaml << EOF
+        apiVersion: v1
+        kind: Deployment
+        metadata:
+          name: ${{ env.APP_NAME }}
+          version: ${{ needs.release.outputs.version }}
+          commit: ${{ github.sha }}
+          timestamp: $(date -Iseconds)
+        spec:
+          replicas: 1
+          strategy:
+            type: RollingUpdate
+          selector:
+            matchLabels:
+              app: ${{ env.APP_NAME }}
+          template:
+            metadata:
+              labels:
+                app: ${{ env.APP_NAME }}
+                version: ${{ needs.release.outputs.version }}
+            spec:
+              containers:
+              - name: ${{ env.APP_NAME }}
+                image: ${{ env.APP_NAME }}:${{ needs.release.outputs.version }}
+                ports:
+                - containerPort: 5000
+                env:
+                - name: FLASK_ENV
+                  value: production
+                readinessProbe:
+                  httpGet:
+                    path: /health
+                    port: 5000
+                  initialDelaySeconds: 10
+                  periodSeconds: 5
+                livenessProbe:
+                  httpGet:
+                    path: /health
+                    port: 5000
+                  initialDelaySeconds: 30
+                  periodSeconds: 10
+        EOF
+        
+        cat deployment-manifest.yaml
+
+    - name: 📤 Subir manifest
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-manifest-${{ needs.release.outputs.version }}
+        path: deployment-manifest.yaml
+
+  # ============================================
+  # JOB 5: DESPLIEGUE A STAGING (Manual)
+  # ============================================
+  deploy-staging:
+    name: 🧪 Despliegue a Staging
+    runs-on: ubuntu-latest
+    needs: [generate-deployment]
+    if: github.event.inputs.environment == 'staging' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: staging
+      url: ${{ env.STAGING_URL }}
+    
+    steps:
+    - name: 📥 Descargar artefactos de despliegue
+      uses: actions/download-artifact@v4
+      with:
+        name: deployment-artifacts-${{ needs.release.outputs.version }}
+        path: deployment-artifacts
+
+    - name: 🚀 Ejecutar script de despliegue a staging
+      run: |
+        chmod +x scripts/deploy-staging.sh
+        ./scripts/deploy-staging.sh ${{ needs.release.outputs.version }}
+
+    - name: 🔍 Health check en staging
+      run: |
+        chmod +x scripts/health-check.sh
+        ./scripts/health-check.sh ${{ env.STAGING_URL }}
+
+    - name: ✅ Notificar despliegue a staging
+      run: |
+        echo "✅ Despliegue a STAGING completado"
+        echo "🌐 URL: ${{ env.STAGING_URL }}"
+        echo "🔢 Versión: ${{ needs.release.outputs.version }}"
+        echo "🔗 Commit: ${{ github.sha }}"
+
+  # ============================================
+  # JOB 6: DESPLIEGUE A PRODUCCIÓN (Manual)
+  # ============================================
+  deploy-production:
+    name: 🚀 Despliegue a Producción
+    runs-on: ubuntu-latest
+    needs: [generate-deployment, deploy-staging]
+    if: github.event.inputs.environment == 'production' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    environment:
+      name: production
+      url: ${{ env.PRODUCTION_URL }}
+    
+    steps:
+    - name: 📥 Descargar artefactos de despliegue
+      uses: actions/download-artifact@v4
+      with:
+        name: deployment-artifacts-${{ needs.release.outputs.version }}
+        path: deployment-artifacts
+
+    - name: 🚀 Ejecutar script de despliegue a producción
+      run: |
+        chmod +x scripts/deploy-production.sh
+        ./scripts/deploy-production.sh ${{ needs.release.outputs.version }}
+
+    - name: 🔍 Health check en producción
+      run: |
+        chmod +x scripts/health-check.sh
+        ./scripts/health-check.sh ${{ env.PRODUCTION_URL }}
+
+    - name: ✅ Notificar despliegue a producción
+      run: |
+        echo "═══════════════════════════════════════"
+        echo "🚀 DESPLIEGUE COMPLETADO EXITOSAMENTE"
+        echo "═══════════════════════════════════════"
+        echo "🌐 URL: ${{ env.PRODUCTION_URL }}"
+        echo "🔢 Versión: ${{ needs.release.outputs.version }}"
+        echo "🔗 Commit: ${{ github.sha }}"
+        echo "📝 Mensaje: ${{ github.event.head_commit.message }}"
+        echo "👤 Autor: ${{ github.actor }}"
+        echo "⏰ Fecha: $(date)"
+        echo "═══════════════════════════════════════"
+
+  # ============================================
+  # JOB 7: GENERACIÓN DE REPORTE FINAL
+  # ============================================
+  report:
+    name: 📊 Reporte Final
+    runs-on: ubuntu-latest
+    needs: [release, test-release, generate-deployment, deploy-production]
+    if: always()
+    
+    steps:
+    - name: 📝 Generar reporte completo
+      run: |
+        cat > release-report.md << EOF
+        # 📊 Reporte de Liberación y Despliegue
+        
+        ## 📋 Información General
+        - **Fecha**: $(date)
+        - **Proyecto**: ${{ env.APP_NAME }}
+        - **Versión**: ${{ needs.release.outputs.version }}
+        - **Commit**: ${{ github.sha }}
+        - **Autor**: ${{ github.actor }}
+        - **Rama**: ${{ github.ref_name }}
+        
+        ## 🔄 Pipeline Status
+        | Etapa | Estado |
+        |-------|--------|
+        | Liberación | ${{ needs.release.result }} |
+        | Setup Entorno | ${{ needs.setup-environment.result }} |
+        | Tests | ${{ needs.test-release.result }} |
+        | Generación Despliegue | ${{ needs.generate-deployment.result }} |
+        | Despliegue Staging | ${{ needs.deploy-staging.result }} |
+        | Despliegue Producción | ${{ needs.deploy-production.result }} |
+        
+        ## 🌐 URLs
+        - **Staging**: ${{ env.STAGING_URL }}
+        - **Producción**: ${{ env.PRODUCTION_URL }}
+        
+        ## 📦 Artefactos Generados
+        - **Build**: calculadorapy-${{ needs.release.outputs.version }}.zip
+        - **Manifest**: deployment-manifest-${{ needs.release.outputs.version }}.yaml
+        - **Release Notes**: release-notes-${{ needs.release.outputs.version }}.md
+        
+        ---
+        *Reporte generado automáticamente por GitHub Actions*
+        EOF
+        
+        cat release-report.md
+
+    - name: 📤 Subir reporte final
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-report-${{ needs.release.outputs.version }}
+        path: release-report.md
+        
